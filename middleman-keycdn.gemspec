@@ -24,8 +24,8 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rake', '>= 0.9.0'
   s.add_development_dependency 'rspec', '~> 3.0'
 
-  s.add_dependency 'middleman-core', '>= 3.0'
-  s.add_dependency 'middleman-cli', '>= 3.0'
+  s.add_dependency 'middleman-core', '~> 4.0'
+  s.add_dependency 'middleman-cli', '~> 4.0'
   s.add_dependency 'keycdn', '~> 0.1.1'
-  s.add_dependency 'ansi'
+  s.add_dependency 'ansi', '~> 1.5'
 end
