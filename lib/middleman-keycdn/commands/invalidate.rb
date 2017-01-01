@@ -24,10 +24,23 @@ module Middleman
           true
         end
 
-        def invalidate(options = nil, files = nil)
+        def invalidate(opts = nil, files = nil)
+          @options = setup_options opts
 
+          ensure_required_options_present
+
+          if @options.purge_all
+            purge_all
+          else
+            purge_urls files
+          end
+        end
+
+        protected
+
+        def setup_options opts
           # If called via commandline, discover config (from bin/middleman)
-          if options.nil?
+          if opts.nil?
             app = Middleman::Application.new do
               config[:mode] = :config
               config[:exit_before_ready] = true
@@ -35,64 +48,58 @@ module Middleman
               config[:disable_sitemap] = true
             end
 
-            # Get the options from the keycdn extension
+            # Get the opts from the keycdn extension
             extension = app.extensions[:keycdn]
             unless extension.nil?
-              options = extension.options
+              opts = extension.options
             end
           end
 
-          if options.nil?
+          if opts.nil?
             configuration_usage
           end
 
+          opts
+        end
+
+        def ensure_required_options_present
           [:api_key, :zone_id, :base_url].each do |key|
-            raise StandardError, "Configuration key #{key} is missing." if options.public_send(key).nil?
+            raise StandardError, "Configuration key #{key} is missing." if @options.public_send(key).nil?
           end
 
-          if !options.purge_all
+          if !@options.purge_all
             [:base_url, :filter].each do |key|
-              raise StandardError, "Configuration key #{key} is missing." if options.public_send(key).nil?
+              raise StandardError, "Configuration key #{key} is missing." if @options.public_send(key).nil?
             end
-          end
-
-
-          if options.purge_all
-            purge_all options
-          else
-            purge_urls options, files
           end
         end
 
-
-        protected
-
-        def purge_all options
-          puts "Invalidating KeyCDN cache for #{options.zone_id}"
-          response = cdn(options).get("zones/purge/#{options.zone_id}.json")
+        def purge_all
+          puts "Invalidating KeyCDN cache for #{@options.zone_id}"
+          response = cdn.get("zones/purge/#{@options.zone_id}.json")
           print_status response
         end
 
-        def purge_urls options, files
-          files = normalize_files(files || list_files(options.filter))
+        def purge_urls files
+          files = normalize_files(files || list_files(@options.filter))
           return if files.empty?
-          urls = files.collect.with_index { |file, index| ["urls[#{index}]", "#{options.base_url}#{file}"] }
+          urls = files.collect.with_index { |file, index| ["urls[#{index}]", "#{@options.base_url}#{file}"] }
           puts "Invalidating #{files.count} urls."
           # puts urls.inspect
-          response = cdn(options).del("zones/purgeurl/#{options.zone_id}.json", Hash[urls])
+          response = cdn.del("zones/purgeurl/#{@options.zone_id}.json", Hash[urls])
           print_status response
         end
 
         def print_status response
-          color = if response['status'] == 'success'
+          if response['status'] == 'success'
             puts ANSI.green { "#{response['description']}" }
           else
             puts ANSI.red { "#{response['description']}" }
           end
         end
 
-        def cdn options
-          ::KeyCDN::Client.new options.api_key
+        def cdn
+          ::KeyCDN::Client.new @options.api_key
         end
 
         def configuration_usage
